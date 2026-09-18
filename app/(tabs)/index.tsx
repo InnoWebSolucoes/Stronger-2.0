@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { format } from 'date-fns';
+import { router } from 'expo-router';
+import { format, isSameDay, startOfWeek, addDays } from 'date-fns';
 import {
   ChevronRight,
+  Play,
   RotateCcw,
   Search,
   Sparkles,
@@ -9,68 +12,72 @@ import {
 } from 'lucide-react-native';
 import { Screen } from '@/ui/primitives/Screen';
 import { Ring } from '@/ui/charts/Ring';
+import { ALL_EXERCISES } from '@/features/exercises/source';
+import { useWorkout, type ExerciseSeed } from '@/features/workout/store';
+import type { CompletedWorkout } from '@/features/workout/types';
 import { c, radius, shadow, space, type } from '@/ui/tokens.bridge';
 
-/**
- * PLACEHOLDER DATA — not wired to the database yet.
- *
- * src/db is still being built. This is here so the layout can be reviewed on a
- * real device; every value below is invented. Delete this block entirely when
- * the queries land — do not "gradually replace" it, or real and fake values
- * end up on screen together.
- */
-const MOCK = {
-  readiness: { score: 100, headline: 'Good to go', detail: 'Strong recovery today' },
-  suggested: {
-    name: 'Upper A',
-    exerciseCount: 5,
-    estimatedMinutes: 45,
-    why: 'Your chest, back and shoulders are recovered. Focus on controlled reps.',
-  },
-  history: [
-    {
-      id: 'w1',
-      name: 'pull',
-      date: new Date(2026, 8, 16),
-      exercises: 8,
-      groups: ['Back', 'Shoulders', 'Arms'],
-      volumeKg: 10714,
-      reps: 359,
-      prs: 2,
-    },
-    {
-      id: 'w2',
-      name: 'push',
-      date: new Date(2026, 8, 14),
-      exercises: 7,
-      groups: ['Shoulders', 'Chest', 'Arms'],
-      volumeKg: 7250,
-      reps: 327,
-      prs: 2,
-    },
-  ],
-} as const;
-
-type WeekDay = {
-  letter: string;
-  day: number;
-  trained: boolean;
-  today?: boolean;
-  future?: boolean;
-};
-
-const WEEK: readonly WeekDay[] = [
-  { letter: 'M', day: 14, trained: true },
-  { letter: 'T', day: 15, trained: false },
-  { letter: 'W', day: 16, trained: true },
-  { letter: 'T', day: 17, trained: false },
-  { letter: 'F', day: 18, trained: false, today: true },
-  { letter: 'S', day: 19, trained: false, future: true },
-  { letter: 'S', day: 20, trained: false, future: true },
+/** A starter template until routines are stored. */
+const UPPER_A: string[] = [
+  'barbell-bench-press',
+  'barbell-row',
+  'seated-dumbbell-press',
+  'lat-pulldown',
+  'dumbbell-lateral-raise',
 ];
+
+function seedsFor(ids: string[]): ExerciseSeed[] {
+  const out: ExerciseSeed[] = [];
+  for (const id of ids) {
+    const found = ALL_EXERCISES.find((e) => e.id === id);
+    if (found) out.push(found);
+  }
+  return out;
+}
 
 export default function LogTab() {
   const today = new Date();
+  const active = useWorkout((s) => s.active);
+  const history = useWorkout((s) => s.history);
+  const start = useWorkout((s) => s.start);
+
+  const week = useMemo(() => {
+    const monday = startOfWeek(today, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(monday, i);
+      return {
+        date,
+        letter: format(date, 'EEEEE'),
+        day: date.getDate(),
+        trained: history.some((w) => isSameDay(new Date(w.finishedAt), date)),
+        isToday: isSameDay(date, today),
+        future: date > today && !isSameDay(date, today),
+      };
+    });
+  }, [history, today]);
+
+  const startSuggested = () => {
+    start('Upper A', seedsFor(UPPER_A));
+    router.push('/workout/active');
+  };
+
+  const startEmpty = () => {
+    start(`Workout ${format(today, 'd MMM')}`);
+    router.push('/workout/active');
+  };
+
+  const repeat = (w: CompletedWorkout) => {
+    start(
+      w.name,
+      w.exercises.map((ex) => ({
+        id: ex.exerciseId,
+        name: ex.name,
+        muscles: ex.muscles,
+        defaultRestSeconds: ex.restSeconds,
+      })),
+    );
+    router.push('/workout/active');
+  };
 
   return (
     <Screen
@@ -82,14 +89,26 @@ export default function LogTab() {
         </Pressable>
       }
     >
-      {/* Recovery + suggestion share one card: the suggestion is a consequence
-          of the readiness score, so separating them would hide the causation. */}
+      {active ? (
+        <Pressable style={styles.resumeBar} onPress={() => router.push('/workout/active')}>
+          <Play color={c.bg.canvas} size={16} fill={c.bg.canvas} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.resumeTitle}>{active.name} in progress</Text>
+            <Text style={styles.resumeMeta}>
+              {active.exercises.length}{' '}
+              {active.exercises.length === 1 ? 'exercise' : 'exercises'} · tap to resume
+            </Text>
+          </View>
+          <ChevronRight color={c.bg.canvas} size={18} />
+        </Pressable>
+      ) : null}
+
       <View style={styles.heroCard}>
         <Pressable style={styles.recoveryRow}>
-          <Ring value={MOCK.readiness.score} size={44} thickness={4} />
+          <Ring value={100} size={44} thickness={4} />
           <View style={styles.recoveryText}>
-            <Text style={styles.recoveryHeadline}>{MOCK.readiness.headline}</Text>
-            <Text style={styles.recoveryDetail}>{MOCK.readiness.detail}</Text>
+            <Text style={styles.recoveryHeadline}>Good to go</Text>
+            <Text style={styles.recoveryDetail}>All muscles recovered</Text>
           </View>
           <ChevronRight color={c.fg.tertiary} size={18} />
         </Pressable>
@@ -103,21 +122,27 @@ export default function LogTab() {
           </View>
 
           <View style={styles.suggestionHead}>
-            <Text style={styles.suggestionName}>{MOCK.suggested.name}</Text>
-            <Text style={styles.suggestionMeta}>
-              {MOCK.suggested.exerciseCount} exercises · ~{MOCK.suggested.estimatedMinutes} min
-            </Text>
+            <Text style={styles.suggestionName}>Upper A</Text>
+            <Text style={styles.suggestionMeta}>{UPPER_A.length} exercises · ~45 min</Text>
           </View>
 
-          <Text style={styles.suggestionWhy}>{MOCK.suggested.why}</Text>
+          <Text style={styles.suggestionWhy}>
+            Chest, back and shoulders are recovered. Focus on controlled reps.
+          </Text>
 
-          <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Start workout</Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={startSuggested}
+            disabled={active !== null}
+          >
+            <Text style={styles.primaryButtonText}>
+              {active ? 'Finish your current workout first' : 'Start workout'}
+            </Text>
           </Pressable>
         </View>
       </View>
 
-      <Pressable style={styles.secondaryButton}>
+      <Pressable style={styles.secondaryButton} onPress={startEmpty} disabled={active !== null}>
         <Text style={styles.secondaryButtonText}>Build my own workout</Text>
       </Pressable>
 
@@ -125,17 +150,17 @@ export default function LogTab() {
 
       <View style={styles.weekCard}>
         <View style={styles.weekStrip}>
-          {WEEK.map((d, i) => (
-            <View key={`${d.letter}-${i}`} style={styles.weekDay}>
+          {week.map((d) => (
+            <View key={d.day} style={styles.weekDay}>
               <Text style={[styles.weekLetter, d.future && styles.weekDimmed]}>
                 {d.letter}
               </Text>
-              <View style={[styles.weekDayNumber, d.today && styles.weekDayToday]}>
+              <View style={[styles.weekDayNumber, d.isToday && styles.weekDayToday]}>
                 <Text
                   style={[
                     styles.weekNumber,
                     d.future && styles.weekDimmed,
-                    d.today && styles.weekNumberToday,
+                    d.isToday && styles.weekNumberToday,
                   ]}
                 >
                   {d.day}
@@ -143,49 +168,58 @@ export default function LogTab() {
               </View>
               <View style={styles.weekDot}>
                 {d.trained ? <View style={styles.dotFilled} /> : null}
-                {d.today ? <View style={styles.dotToday} /> : null}
               </View>
             </View>
           ))}
         </View>
       </View>
 
-      <Text style={styles.sectionLabel}>THIS WEEK</Text>
+      <Text style={styles.sectionLabel}>
+        {history.length > 0 ? 'RECENT WORKOUTS' : 'NO WORKOUTS YET'}
+      </Text>
 
-      {MOCK.history.map((w) => (
+      {history.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Your log is empty</Text>
+          <Text style={styles.emptyBody}>
+            Start a workout and every set you tick off lands here, with volume, reps
+            and personal records.
+          </Text>
+        </View>
+      ) : null}
+
+      {history.slice(0, 12).map((w) => (
         <View key={w.id} style={styles.historyCard}>
           <View style={styles.historyTop}>
             <Text style={styles.historyName}>{w.name}</Text>
             <View style={styles.historyActions}>
-              {w.prs > 0 ? (
-                <View style={styles.prBadge}>
-                  <Trophy color={c.record.fg} size={11} />
-                  <Text style={styles.prBadgeText}>{w.prs} PB</Text>
-                </View>
-              ) : null}
-              <Pressable style={styles.repeatButton} hitSlop={6}>
+              <Pressable style={styles.repeatButton} hitSlop={6} onPress={() => repeat(w)}>
                 <RotateCcw color={c.fg.secondary} size={15} />
               </Pressable>
             </View>
           </View>
 
           <Text style={styles.historyMeta}>
-            {format(w.date, 'EEE d MMM')} · {w.exercises} exercises
+            {format(new Date(w.finishedAt), 'EEE d MMM')} · {w.exercises.length}{' '}
+            {w.exercises.length === 1 ? 'exercise' : 'exercises'}
           </Text>
 
           <View style={styles.historyBottom}>
             <View style={styles.chips}>
-              {w.groups.map((g) => (
-                <View key={g} style={styles.chip}>
-                  <Text style={styles.chipText}>{g.toUpperCase()}</Text>
-                </View>
-              ))}
+              {Array.from(new Set(w.exercises.flatMap((e) => e.muscles)))
+                .slice(0, 3)
+                .map((g) => (
+                  <View key={g} style={styles.chip}>
+                    <Text style={styles.chipText}>{g.toUpperCase()}</Text>
+                  </View>
+                ))}
             </View>
             <Text style={styles.historyStats}>
-              <Text style={styles.historyStatValue}>{w.volumeKg.toLocaleString()}</Text>
-              <Text style={styles.historyStatUnit}>kg</Text>
-              <Text style={styles.historyStatUnit}> · </Text>
-              <Text style={styles.historyStatValue}>{w.reps}</Text>
+              <Text style={styles.historyStatValue}>
+                {Math.round(w.volumeKg).toLocaleString()}
+              </Text>
+              <Text style={styles.historyStatUnit}>kg · </Text>
+              <Text style={styles.historyStatValue}>{w.totalReps}</Text>
               <Text style={styles.historyStatUnit}> reps</Text>
             </Text>
           </View>
@@ -204,6 +238,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.surface[2],
   },
+
+  resumeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: c.brand.base,
+    borderRadius: radius.md,
+    padding: space.lg,
+    marginBottom: space.md,
+  },
+  resumeTitle: { ...type.bodyStrong, color: c.bg.canvas },
+  resumeMeta: { ...type.caption, color: 'rgba(7,10,17,0.72)' },
 
   heroCard: {
     borderRadius: radius.lg,
@@ -291,13 +337,17 @@ const styles = StyleSheet.create({
   weekDimmed: { color: c.fg.disabled },
   weekDot: { height: 6, justifyContent: 'center' },
   dotFilled: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.brand.base },
-  dotToday: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
+
+  emptyCard: {
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: c.brand.base,
+    borderStyle: 'dashed',
+    borderColor: c.border.default,
+    padding: space.xl,
+    gap: space.xs,
   },
+  emptyTitle: { ...type.heading, color: c.fg.primary },
+  emptyBody: { ...type.body, color: c.fg.tertiary },
 
   historyCard: {
     borderRadius: radius.lg,
@@ -315,16 +365,6 @@ const styles = StyleSheet.create({
   },
   historyName: { ...type.heading, color: c.fg.primary, flex: 1 },
   historyActions: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  prBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
-    paddingHorizontal: space.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: c.record.fill,
-  },
-  prBadgeText: { ...type.caption, fontWeight: '700', color: c.record.fg, fontSize: 11 },
   repeatButton: {
     width: 34,
     height: 34,
