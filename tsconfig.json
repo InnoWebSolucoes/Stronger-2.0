@@ -1,0 +1,42 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@core/*": [
+        "./src/core/*"
+      ],
+      "@db/*": [
+        "./src/db/*"
+      ],
+      "@ui/*": [
+        "./src/ui/*"
+      ],
+      "@features/*": [
+        "./src/features/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "docs",
+    ".expo",
+    "dist"
+  ]
+}

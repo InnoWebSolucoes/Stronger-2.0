@@ -1,0 +1,382 @@
+/* ============================================================================
+   STRONGER 2.0 — DESIGN TOKENS
+   Every colour pair below was verified with a WCAG 2.1 relative-luminance
+   calculator and a Vienot/Brettel/Mollon dichromat simulator. Ratios in the
+   comments are measured, not estimated.
+   Layer 1 = primitives (never referenced by components)
+   Layer 2 = semantic aliases (the ONLY thing components may use)
+   ========================================================================= */
+
+:root {
+  /* ---------- 1. PRIMITIVES: neutral ramp (blue-tinted, hue ~222) -------- */
+  --n-1000:#070A11; --n-975:#0B0F19; --n-950:#121725; --n-900:#1A2032;
+  --n-850:#222A3D;  --n-800:#2B3348; --n-750:#36405A; --n-700:#4C5872;
+  --n-600:#626E85;  --n-500:#7A8599; --n-400:#8A94A8; --n-300:#A7B1C4;
+  --n-200:#C6CEDC;  --n-150:#DDE3EC; --n-100:#EDF0F6; --n-75:#F4F6FA;
+  --n-50:#FFFFFF;
+
+  /* ---------- 1. PRIMITIVES: amber (brand) ------------------------------ */
+  --amber-200:#FFE3A3; --amber-300:#FFC15E; --amber-400:#F7B23B;
+  --amber-500:#F5A524; --amber-600:#D98613; --amber-700:#B26A00;
+  --amber-800:#8A5000; --amber-900:#5A3505;
+
+  /* ---------- 1. PRIMITIVES: blue (action) ------------------------------ */
+  --blue-200:#B9D6FF; --blue-300:#6FB0FF; --blue-400:#4C9DF0;
+  --blue-500:#2A6FE0; --blue-600:#1F63D6; --blue-700:#1257C9;
+  --blue-800:#0E3F92;
+
+  /* ---------- 1. PRIMITIVES: green (ready / positive) ------------------- */
+  --green-200:#A9F0C8; --green-300:#5FE39B; --green-400:#4ADE8B;
+  --green-500:#22C55E; --green-600:#1FA95A; --green-700:#0F7A43;
+  --green-800:#0A5730;
+
+  /* ---------- 1. PRIMITIVES: red (regression / destructive) ------------- */
+  --red-200:#FFC4C9; --red-300:#FF8A93; --red-400:#E5484D;
+  --red-500:#D6293E; --red-600:#BE2438; --red-700:#9B1C2D;
+
+  /* ---------- 1. PRIMITIVES: rank tiers --------------------------------- */
+  /* Luminance-monotonic slate -> blue -> teal -> amber -> gold.
+     Verified CVD-safe: min deltaE protan 28.5 / deutan 23.2.
+     Tritan is weak (5.4) -> rank is NEVER encoded by colour alone; the
+     badge always carries the tier name AND 1-5 filled pips.              */
+  --tier-1:#7C8AA0; --tier-2:#4E9BE0; --tier-3:#2FB98C;
+  --tier-4:#F7B23B; --tier-5:#FFE3A3;
+
+  /* ---------- 2. SEMANTIC — DARK THEME (default) ------------------------ */
+  color-scheme: dark;
+
+  /* Surfaces. Elevation on dark = lightness, not shadow. */
+  --bg-canvas:        var(--n-1000); /* behind sheets, status-bar bleed     */
+  --bg-app:           var(--n-975);  /* screen background                   */
+  --surface-1:        var(--n-950);  /* cards, list rows                    */
+  --surface-2:        var(--n-900);  /* inputs, nested cards, set rows      */
+  --surface-3:        var(--n-850);  /* sheets, popovers, active segment    */
+  --surface-4:        var(--n-800);  /* menus, tooltips, toasts             */
+  --surface-sunken:   #0E1320;       /* wells, chart plot areas             */
+  --surface-scrim:    rgba(4,7,13,.72);
+
+  /* The 1px inner top highlight that reads as "raised" on dark. Use this
+     INSTEAD of a shadow on cards. Single most important dark-mode detail. */
+  --edge-highlight:   inset 0 1px 0 0 rgba(255,255,255,.045);
+
+  /* Foreground */
+  --fg-primary:       #F2F5FA; /* 17.52:1 on bg-app, 16.35:1 on surface-1  */
+  --fg-secondary:     #A7B1C4; /*  8.87:1 on bg-app,  8.28:1 on surface-1  */
+  --fg-tertiary:      #8A94A8; /*  6.28:1 on bg-app,  4.69:1 on surface-3  */
+  --fg-disabled:      #5C6679; /* disabled controls / non-text glyphs only */
+  --fg-on-accent:     #120C02; /* ink on amber fill = 9.53:1               */
+  --fg-on-action:     #FFFFFF; /* white on blue-500  = 4.72:1              */
+  --fg-inverse:       #0B0F19;
+
+  /* Borders. Interactive borders meet the 3:1 non-text rule (WCAG 1.4.11) */
+  --border-subtle:      #1C2333;
+  --border-default:     #252E41;
+  --border-strong:      #36405A;
+  --border-interactive: #626E85; /* 3.48:1 on surface-1                    */
+  --border-focus:       #6FB0FF;
+
+  /* Brand / accents */
+  --accent-brand:        var(--amber-500); /* 9.38:1 on bg-app             */
+  --accent-brand-text:   var(--amber-300); /* 11.89:1 on bg-app            */
+  --accent-brand-weak:   rgba(245,165,36,.14);
+  --accent-brand-border: rgba(245,165,36,.32);
+
+  --action-fill:       var(--blue-500);  /* white 4.72:1, 3.79:1 vs surf-1 */
+  --action-fill-hover: #3479EC;
+  --action-fill-press: #205CC4;
+  --action-text:       var(--blue-300);  /* 8.51:1 on bg-app               */
+  --action-weak:       rgba(42,111,224,.16);
+
+  --positive-text:   var(--green-400);  /* 11.05:1 — ALWAYS with a ▲ + sign */
+  --positive-fill:   var(--green-500);  /* ink label 8.31:1                 */
+  --positive-weak:   rgba(34,197,94,.15);
+  --negative-text:   var(--red-300);    /*  8.49:1 — ALWAYS with a ▼ + sign */
+  --negative-fill:   var(--red-500);    /* white label 4.95:1               */
+  --negative-weak:   rgba(214,41,62,.16);
+  --warning-text:    var(--amber-300);
+  --warning-fill:    var(--amber-500);
+  --warning-weak:    rgba(245,165,36,.14);
+
+  /* PR / personal record. Deliberately NOT a new hue: a record IS the brand
+     moment. This is the ONE place amber is used as a solid fill, so a
+     filled amber pill means exactly one thing in the entire product.      */
+  --record-fill:   var(--amber-300);
+  --record-fg:     #171004;   /* 11.72:1 */
+  --record-border: var(--amber-500);
+  --record-glow:   0 0 0 1px rgba(245,165,36,.45), 0 4px 16px rgba(245,165,36,.18);
+
+  /* Muscle readiness states */
+  --ready-full:    var(--green-400); /* >= 90% recovered */
+  --ready-partial: var(--amber-400); /* 50-89%           */
+  --ready-low:     var(--red-400);   /* < 50%            */
+  --ready-rest:    var(--n-600);     /* untrained / n/a  */
+
+  /* ---------- 3. DATA VISUALISATION ------------------------------------- */
+  /* Categorical: MAX 4 SERIES. Verified min deltaE protan 29.2 /
+     deutan 20.6 / tritan 22.5. Past 4 categories switch to a sequential
+     ramp with direct labels — a 5th categorical colour does not exist.   */
+  --viz-cat-1:#4C9DF0; --viz-cat-2:#FFC15E;
+  --viz-cat-3:#D46FB0; --viz-cat-4:#CBD5E6;
+
+  /* Directional deltas drawn as pure graphics (no sign glyph present).
+     Separated by LUMINANCE so they survive deuteranopia: deltaE 30.9.    */
+  --viz-up:#5FE39B; --viz-down:#E5484D; --viz-flat:#7A8599;
+
+  /* Muscle-load heat ramp (magma-derived, perceptually uniform).
+     Deutan-simulated L*: 9-16-27-40-53-69-81-93 = strictly monotonic.    */
+  --heat-0:#232B3D; /* muscle silhouette, untrained */
+  --heat-1:#2C1F4A; --heat-2:#5A2465; --heat-3:#8E2F63; --heat-4:#C24A53;
+  --heat-5:#EE7F4E; --heat-6:#FCB562; --heat-7:#FFE6A8;
+
+  /* Training-consistency / activity heatmap (single-hue amber, 6 steps). */
+  --act-0:#151B29; --act-1:#43300F; --act-2:#6E4C0F;
+  --act-3:#A5731A; --act-4:#D89A24; --act-5:#FFC15E;
+
+  /* Chart furniture */
+  --viz-grid:#1E2637;
+  --viz-axis:#2A3346;
+  --viz-label:var(--fg-tertiary);
+  --viz-track:var(--surface-3);          /* ring + bar tracks             */
+  --viz-band:rgba(76,157,240,.12);       /* percentile / range band       */
+  --viz-projection:rgba(167,177,196,.5); /* dashed forecast               */
+  --viz-area-top:rgba(245,165,36,.22);
+  --viz-area-bottom:rgba(245,165,36,0);
+
+  /* ---------- 4. TYPOGRAPHY --------------------------------------------- */
+  --font-ui:'Inter Variable','Inter',-apple-system,'SF Pro Text',
+            'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --font-display:'Archivo Variable','Archivo','Inter Variable',
+            -apple-system,'SF Pro Display','Segoe UI Variable Display',Roboto,sans-serif;
+  --font-mono:ui-monospace,'SF Mono','JetBrains Mono','Cascadia Mono',
+            'Roboto Mono',Menlo,Consolas,monospace;
+
+  /* Inter v4 features: cv05 = l with tail, cv08 = I with serif (kills the
+     1/l/I collision in "1 x 12 lb"), ss03 = round quotes. Slashed zero is
+     deliberately OFF — it reads engineering, not athletic.               */
+  --font-features-ui:'cv05' 1,'cv08' 1,'ss03' 1,'calt' 1;
+
+  --fs-display-xl:56px; --lh-display-xl:56px; --ls-display-xl:-0.030em;
+  --fs-display-l:44px;  --lh-display-l:44px;  --ls-display-l:-0.028em;
+  --fs-display-m:34px;  --lh-display-m:36px;  --ls-display-m:-0.022em;
+  --fs-display-s:28px;  --lh-display-s:32px;  --ls-display-s:-0.018em;
+  --fs-title-l:22px;    --lh-title-l:28px;    --ls-title-l:-0.012em;
+  --fs-title-m:19px;    --lh-title-m:24px;    --ls-title-m:-0.008em;
+  --fs-title-s:17px;    --lh-title-s:22px;    --ls-title-s:-0.004em;
+  --fs-body-l:16px;     --lh-body-l:24px;     --ls-body-l:0;
+  --fs-body-m:15px;     --lh-body-m:22px;     --ls-body-m:0;
+  --fs-body-s:13px;     --lh-body-s:18px;     --ls-body-s:0.004em;
+  --fs-label-l:15px;    --lh-label-l:20px;    --ls-label-l:0;
+  --fs-label-m:13px;    --lh-label-m:16px;    --ls-label-m:0.010em;
+  --fs-label-s:11px;    --lh-label-s:14px;    --ls-label-s:0.060em; /* UPPER */
+  --fs-num-l:20px;      --lh-num-l:24px;
+  --fs-num-m:17px;      --lh-num-m:20px;
+  --fs-num-s:13px;      --lh-num-s:16px;
+  --fs-mono-s:12px;     --lh-mono-s:16px;
+
+  --fw-regular:450; --fw-medium:520; --fw-semibold:600;
+  --fw-bold:680;    --fw-black:800;
+  --wdth-display:112; /* Archivo width axis for hero numerals (range 62-125) */
+
+  /* ---------- 5. SPACING (4px base) ------------------------------------- */
+  --sp-0:0;     --sp-1:2px;  --sp-2:4px;  --sp-3:6px;  --sp-4:8px;
+  --sp-5:10px;  --sp-6:12px; --sp-7:16px; --sp-8:20px; --sp-9:24px;
+  --sp-10:32px; --sp-11:40px; --sp-12:48px; --sp-13:64px; --sp-14:80px;
+
+  --gutter:16px;       /* screen side padding, mobile                      */
+  --gutter-wide:24px;  /* >= 600px                                         */
+  --card-pad:14px;
+  --card-pad-lg:16px;
+  --row-h:44px;        /* min tap target                                   */
+  --row-h-set:48px;    /* set row in active workout                        */
+  --tabbar-h:56px;     /* + env(safe-area-inset-bottom)                    */
+  --appbar-h:52px;
+  --stack-gap:10px;    /* between cards in a list                          */
+  --section-gap:28px;  /* between page sections                            */
+
+  /* ---------- 6. RADIUS ------------------------------------------------- */
+  --r-xs:4px;  --r-sm:6px;   --r-md:8px;   --r-lg:12px;
+  --r-xl:16px; --r-2xl:20px; --r-3xl:28px; --r-pill:999px;
+  /* Nesting rule: inner radius = outer radius - padding. */
+
+  /* ---------- 7. ELEVATION ---------------------------------------------- */
+  /* Dark theme: cards get --edge-highlight, NOT a shadow. Shadows are only
+     for things that genuinely float above the scroll plane.              */
+  --shadow-0:none;
+  --shadow-1:0 1px 2px rgba(0,0,0,.36);
+  --shadow-2:0 4px 12px rgba(0,0,0,.44), 0 1px 2px rgba(0,0,0,.32);
+  --shadow-3:0 12px 32px rgba(0,0,0,.52), 0 2px 6px rgba(0,0,0,.36);
+  --shadow-4:0 24px 64px rgba(0,0,0,.60), 0 4px 12px rgba(0,0,0,.40);
+  --ring-focus:0 0 0 2px var(--bg-app), 0 0 0 4px var(--border-focus);
+
+  /* ---------- 8. MOTION ------------------------------------------------- */
+  --dur-instant:0ms;
+  --dur-micro:120ms;      /* press states, checkbox fill                   */
+  --dur-short:180ms;      /* chips, tooltips, crossfades                   */
+  --dur-standard:240ms;   /* sheets, expand/collapse                       */
+  --dur-emphasized:320ms; /* screen transitions, summary tiles             */
+  --dur-long:420ms;       /* ring fill on first paint                      */
+  --dur-celebrate:700ms;  /* PR burst — fires once, never loops            */
+
+  --ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-decelerate:cubic-bezier(.05,.7,.1,1);
+  --ease-accelerate:cubic-bezier(.3,0,.8,.15);
+  --ease-linear:linear;                        /* timers ONLY              */
+  --ease-spring:cubic-bezier(.34,1.42,.64,1);  /* set-complete overshoot   */
+  --stagger:60ms;
+
+  /* ---------- 9. Z-INDEX ------------------------------------------------ */
+  --z-base:0; --z-sticky:10; --z-tabbar:20; --z-resttimer:30;
+  --z-sheet:40; --z-menu:50; --z-toast:60; --z-modal:70;
+}
+
+/* ===========================================================================
+   LIGHT THEME
+   ======================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-canvas:#EDF0F6; --bg-app:#F4F6FA;
+  --surface-1:#FFFFFF; --surface-2:#EDF0F6; --surface-3:#E3E8F1;
+  --surface-4:#FFFFFF; --surface-sunken:#EAEEF5;
+  --surface-scrim:rgba(11,15,25,.44);
+  --edge-highlight:none;
+
+  --fg-primary:#0B0F19;   /* 19.15:1 on surface-1 */
+  --fg-secondary:#465163; /*  8.02:1 */
+  --fg-tertiary:#667184;  /*  4.93:1 */
+  --fg-disabled:#98A1B2;
+  --fg-on-accent:#241703;
+  --fg-on-action:#FFFFFF;
+  --fg-inverse:#F2F5FA;
+
+  --border-subtle:#E6EAF2; --border-default:#D6DCE8;
+  --border-strong:#B9C2D2; --border-interactive:#7B8699; /* 3.68:1 on white */
+  --border-focus:#1257C9;
+
+  --accent-brand:var(--amber-700);
+  --accent-brand-text:var(--amber-800);   /* 6.51:1 on white */
+  --accent-brand-weak:rgba(245,165,36,.16);
+  --accent-brand-border:rgba(178,106,0,.34);
+
+  --action-fill:var(--blue-700);          /* white label 6.50:1 */
+  --action-fill-hover:#0F4EB4;
+  --action-fill-press:#0C4099;
+  --action-text:var(--blue-700);
+  --action-weak:rgba(18,87,201,.10);
+
+  --positive-text:var(--green-700);       /* 5.41:1 */
+  --positive-fill:var(--green-700);
+  --positive-weak:rgba(15,122,67,.12);
+  --negative-text:var(--red-600);         /* 6.00:1 */
+  --negative-fill:var(--red-600);
+  --negative-weak:rgba(190,36,56,.10);
+  --warning-text:var(--amber-800);
+  --warning-fill:var(--amber-700);
+  --warning-weak:rgba(178,106,0,.12);
+
+  --record-fill:var(--amber-500);
+  --record-fg:#1A1206;                    /* 9.08:1 */
+  --record-border:var(--amber-700);
+  --record-glow:0 0 0 1px rgba(178,106,0,.40), 0 4px 16px rgba(245,165,36,.28);
+
+  --ready-full:var(--green-700); --ready-partial:var(--amber-700);
+  --ready-low:var(--red-600);    --ready-rest:#7B8699;
+
+  --tier-1:#7A8496; --tier-2:#2E71B8; --tier-3:#0E7150;
+  --tier-4:#8A5000; --tier-5:#6B4A05;  /* 3.77 / 5.04 / 6.01 / 6.51 / 8.06 */
+
+  --viz-cat-1:#1E6FA8; --viz-cat-2:#B5730B;
+  --viz-cat-3:#A44B86; --viz-cat-4:#5B6779;
+  --viz-up:#0F7A43; --viz-down:#BE2438; --viz-flat:#7B8699;
+
+  /* Sequential ramps invert: light background -> dark = high value. */
+  --heat-0:#DCE2EC;
+  --heat-1:#FBE3C8; --heat-2:#F8BE86; --heat-3:#F0864F; --heat-4:#D2504F;
+  --heat-5:#9E2F63; --heat-6:#5F2465; --heat-7:#2C1F4A;
+
+  --act-0:#ECEFF4; --act-1:#FBE8C6; --act-2:#F6CE87;
+  --act-3:#EDAE44; --act-4:#D18A15; --act-5:#9A6100;
+
+  --viz-grid:#E9EDF4; --viz-axis:#D6DCE8;
+  --viz-track:#E3E8F1; --viz-band:rgba(18,87,201,.10);
+  --viz-projection:rgba(70,81,99,.45);
+  --viz-area-top:rgba(178,106,0,.20); --viz-area-bottom:rgba(178,106,0,0);
+
+  --shadow-1:0 1px 2px rgba(11,15,25,.06);
+  --shadow-2:0 4px 12px rgba(11,15,25,.08), 0 1px 2px rgba(11,15,25,.05);
+  --shadow-3:0 12px 32px rgba(11,15,25,.12), 0 2px 6px rgba(11,15,25,.06);
+  --shadow-4:0 24px 64px rgba(11,15,25,.16), 0 4px 12px rgba(11,15,25,.08);
+}
+
+/* ===========================================================================
+   BASE
+   ======================================================================== */
+html { -webkit-text-size-adjust:100%; }
+
+body {
+  margin:0;
+  background:var(--bg-app);
+  color:var(--fg-primary);
+  font-family:var(--font-ui);
+  font-size:var(--fs-body-m);
+  line-height:var(--lh-body-m);
+  font-weight:var(--fw-regular);
+  font-feature-settings:var(--font-features-ui);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* THE NUMERAL RULE
+   Every digit that sits in a column, ticks live, or will be compared to
+   another digit uses tabular figures. Prose numbers ("3 exercises") stay
+   proportional. Apply via class, never ad hoc. */
+.tnum, .stat-value, .set-row, .data-table, .metric, .timer, .chart-label,
+input[inputmode="decimal"], input[inputmode="numeric"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: var(--font-features-ui), 'tnum' 1;
+}
+
+.display-metric {
+  font-family: var(--font-display);
+  font-variation-settings: 'wght' 700, 'wdth' var(--wdth-display);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-display-m);
+  line-height: var(--lh-display-m);
+  letter-spacing: var(--ls-display-m);
+}
+
+.eyebrow {
+  font-size: var(--fs-label-s);
+  line-height: var(--lh-label-s);
+  letter-spacing: var(--ls-label-s);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  color: var(--fg-tertiary);
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  box-shadow: var(--edge-highlight);
+  padding: var(--card-pad);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--r-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-micro:0ms; --dur-short:0ms; --dur-standard:0ms;
+    --dur-emphasized:0ms; --dur-long:0ms; --dur-celebrate:0ms;
+  }
+  *, *::before, *::after {
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}

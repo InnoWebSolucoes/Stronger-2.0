@@ -1,44 +1,48 @@
 # Dependencies
 node_modules/
-.pnp
-.pnp.js
-.yarn/
 
-# Build output
+# Expo
+.expo/
 dist/
-build/
-out/
-.next/
-.turbo/
-*.tsbuildinfo
+web-build/
+expo-env.d.ts
+.metro-health-check*
 
-# Environment
+# Generated native projects (prebuild output)
+/ios
+/android
+.kotlin/
+
+# Signing material — never commit
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+*.orig.*
+
+# Environment — .env.example is the only one tracked
 .env
 .env.*
 !.env.example
 
 # Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.*
+
+# TypeScript
+*.tsbuildinfo
 
 # Testing
 coverage/
-.nyc_output/
-playwright-report/
-test-results/
 
-# Editor / OS
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-.idea/
+# Generated exercise media — rebuilt by scripts/, not tracked
+assets/exercises/generated/
+
+# OS / editor
 .DS_Store
 Thumbs.db
-
-# Caches
-.cache/
-.eslintcache
-.vercel
+.idea/
