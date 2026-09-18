@@ -41,6 +41,10 @@ export default function RootLayout() {
             name="workout/summary"
             options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
           />
+          <Stack.Screen
+            name="routine/edit"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
         </Stack>
         {/* Mounted once at the root: React Native's Alert is a no-op on web,
             so every confirm in the app routes through this instead. */}

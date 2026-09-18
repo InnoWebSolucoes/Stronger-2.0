@@ -27,6 +27,7 @@ import {
 import { confirm } from '@/ui/primitives/Dialog';
 import { ExerciseDemo } from '@/ui/anatomy/ExerciseDemo';
 import { coachTip } from '@/features/workout/coach';
+import { usePick } from '@/features/exercises/pick-store';
 import { c, radius, space, type } from '@/ui/tokens.bridge';
 
 function hhmmss(totalSec: number): string {
@@ -63,6 +64,7 @@ export default function ActiveWorkoutScreen() {
   const finish = useWorkout((s) => s.finish);
   const discard = useWorkout((s) => s.discard);
   const clearRest = useWorkout((s) => s.clearRest);
+  const setPickMode = usePick((s) => s.setMode);
 
   // One ticker drives both the session duration and the rest countdown, so
   // they can never drift apart on screen.
@@ -246,7 +248,12 @@ export default function ActiveWorkoutScreen() {
 
         <Pressable
           style={styles.addExercise}
-          onPress={() => router.push('/workout/pick-exercise')}
+          onPress={() => {
+            // The picker is shared with the routine editor, so the caller must
+            // claim it or a pick can land in the wrong place.
+            setPickMode('workout');
+            router.push('/workout/pick-exercise');
+          }}
         >
           <Plus color={c.fg.onAction} size={18} />
           <Text style={styles.addExerciseText}>Add exercise</Text>

@@ -15,6 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { Plus, Search, X } from 'lucide-react-native';
 import { MUSCLE_GROUPS, searchExercises } from '@/features/exercises/source';
 import { useWorkout } from '@/features/workout/store';
+import { usePick } from '@/features/exercises/pick-store';
 import { ExerciseDemo } from '@/ui/anatomy/ExerciseDemo';
 import { c, radius, space, type } from '@/ui/tokens.bridge';
 
@@ -22,21 +23,29 @@ export default function PickExerciseScreen() {
   const insets = useSafeAreaInsets();
   const addExercise = useWorkout((s) => s.addExercise);
   const active = useWorkout((s) => s.active);
+  const mode = usePick((s) => s.mode);
+  const put = usePick((s) => s.put);
 
   const [query, setQuery] = useState('');
   const [muscle, setMuscle] = useState<string | null>(null);
 
   const results = useMemo(() => searchExercises(query, muscle), [query, muscle]);
   const alreadyAdded = useMemo(
-    () => new Set((active?.exercises ?? []).map((e) => e.exerciseId)),
-    [active],
+    () =>
+      mode === 'routine'
+        ? new Set<string>()
+        : new Set((active?.exercises ?? []).map((e) => e.exerciseId)),
+    [active, mode],
   );
 
   const add = (id: string) => {
     const found = results.find((r) => r.id === id);
     if (!found) return;
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    addExercise(found);
+    // One picker, two callers: the live workout adds directly, the routine
+    // editor collects the pick on its way back.
+    if (mode === 'routine') put(found);
+    else addExercise(found);
     router.back();
   };
 
