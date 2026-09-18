@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useWorkout } from '@/features/workout/store';
+import { DialogHost } from '@/ui/primitives/Dialog';
 import { c } from '@/ui/tokens.bridge';
 
 export default function RootLayout() {
@@ -41,6 +42,9 @@ export default function RootLayout() {
             options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
           />
         </Stack>
+        {/* Mounted once at the root: React Native's Alert is a no-op on web,
+            so every confirm in the app routes through this instead. */}
+        <DialogHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

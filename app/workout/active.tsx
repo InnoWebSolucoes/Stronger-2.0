@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -12,14 +11,22 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Check, ChevronDown, Plus, Timer, Trash2 } from 'lucide-react-native';
+import { Check, ChevronDown, Lightbulb, Plus, Timer, Trash2 } from 'lucide-react-native';
 import {
   useWorkout,
   workoutCompletedSets,
   workoutReps,
   workoutVolumeKg,
 } from '@/features/workout/store';
-import { SET_TYPE_MARK, type LoggedSet, type SetType } from '@/features/workout/types';
+import {
+  SET_TYPE_MARK,
+  type LoggedSet,
+  type SetType,
+  type WorkoutExercise,
+} from '@/features/workout/types';
+import { confirm } from '@/ui/primitives/Dialog';
+import { ExerciseDemo } from '@/ui/anatomy/ExerciseDemo';
+import { coachTip } from '@/features/workout/coach';
 import { c, radius, space, type } from '@/ui/tokens.bridge';
 
 function hhmmss(totalSec: number): string {
@@ -83,29 +90,39 @@ export default function ActiveWorkoutScreen() {
   const restLeft = restEndsAt ? Math.ceil((restEndsAt - now) / 1000) : 0;
   const resting = restLeft > 0;
 
-  const onFinish = () => {
+  const onFinish = async () => {
     if (doneSets === 0) {
-      Alert.alert(
-        'Nothing logged yet',
-        'Tick at least one set, or discard this workout.',
-        [
-          { text: 'Keep going', style: 'cancel' },
-          {
-            text: 'Discard',
-            style: 'destructive',
-            onPress: () => {
-              discard();
-              router.back();
-            },
-          },
-        ],
-      );
+      const discardIt = await confirm({
+        title: 'Nothing logged yet',
+        message: 'Tick at least one set to finish, or discard this workout.',
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep going',
+        destructive: true,
+      });
+      if (discardIt) {
+        discard();
+        router.back();
+      }
       return;
     }
     const completed = finish();
     tap(Haptics.ImpactFeedbackStyle.Heavy);
     if (completed) router.replace({ pathname: '/workout/summary', params: { id: completed.id } });
     else router.back();
+  };
+
+  const onDiscard = async () => {
+    const yes = await confirm({
+      title: 'Discard workout?',
+      message: 'Everything logged in this session is lost.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep going',
+      destructive: true,
+    });
+    if (yes) {
+      discard();
+      router.back();
+    }
   };
 
   return (
@@ -155,6 +172,7 @@ export default function ActiveWorkoutScreen() {
         {active.exercises.map((ex) => (
           <View key={ex.id} style={styles.exerciseCard}>
             <View style={styles.exerciseHead}>
+              <ExerciseDemo exerciseId={ex.exerciseId} size={52} />
               <Text style={styles.exerciseName}>{ex.name}</Text>
               <View style={styles.restChip}>
                 <Timer color={c.brand.text} size={12} />
@@ -164,20 +182,21 @@ export default function ActiveWorkoutScreen() {
               </View>
               <Pressable
                 hitSlop={8}
-                onPress={() =>
-                  Alert.alert(ex.name, undefined, [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Remove exercise',
-                      style: 'destructive',
-                      onPress: () => removeExercise(ex.id),
-                    },
-                  ])
-                }
+                onPress={async () => {
+                  const yes = await confirm({
+                    title: `Remove ${ex.name}?`,
+                    message: 'Its sets are removed from this workout.',
+                    confirmLabel: 'Remove',
+                    destructive: true,
+                  });
+                  if (yes) removeExercise(ex.id);
+                }}
               >
                 <Trash2 color={c.fg.tertiary} size={16} />
               </Pressable>
             </View>
+
+            <CoachPanel exercise={ex} />
 
             <View style={styles.tableHead}>
               <Text style={[styles.th, styles.colSet]}>SET</Text>
@@ -233,25 +252,54 @@ export default function ActiveWorkoutScreen() {
           <Text style={styles.addExerciseText}>Add exercise</Text>
         </Pressable>
 
-        <Pressable
-          style={styles.discard}
-          onPress={() =>
-            Alert.alert('Discard workout?', 'Everything logged in this session is lost.', [
-              { text: 'Keep going', style: 'cancel' },
-              {
-                text: 'Discard',
-                style: 'destructive',
-                onPress: () => {
-                  discard();
-                  router.back();
-                },
-              },
-            ])
-          }
-        >
+        <Pressable style={styles.discard} onPress={onDiscard}>
           <Text style={styles.discardText}>Discard workout</Text>
         </Pressable>
       </ScrollView>
+    </View>
+  );
+}
+
+function CoachPanel({ exercise }: { exercise: WorkoutExercise }) {
+  const history = useWorkout((s) => s.history);
+  const [open, setOpen] = useState(true);
+
+  // The same exercise in the most recent session that contained it.
+  const lastTime = useMemo(() => {
+    for (const w of history) {
+      const match = w.exercises.find((e) => e.exerciseId === exercise.exerciseId);
+      if (match) return match;
+    }
+    return null;
+  }, [history, exercise.exerciseId]);
+
+  const tip = useMemo(() => coachTip(exercise, lastTime), [exercise, lastTime]);
+
+  return (
+    <View style={styles.coach}>
+      <Pressable style={styles.coachHead} onPress={() => setOpen((v) => !v)} hitSlop={6}>
+        <Lightbulb color={c.action.text} size={13} />
+        <Text style={styles.coachTitle}>Coach tip</Text>
+        <ChevronDown
+          color={c.fg.tertiary}
+          size={14}
+          style={{ transform: [{ rotate: open ? '0deg' : '-90deg' }] }}
+        />
+      </Pressable>
+
+      {open ? (
+        <View style={styles.coachBody}>
+          {tip.cues.map((cue) => (
+            <View key={cue} style={styles.cueRow}>
+              <View style={styles.bullet} />
+              <Text style={styles.cueText}>{cue}</Text>
+            </View>
+          ))}
+          {tip.progression ? (
+            <Text style={styles.progression}>{tip.progression}</Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -424,7 +472,32 @@ const styles = StyleSheet.create({
     padding: space.lg,
     gap: space.sm,
   },
-  exerciseHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  exerciseHead: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+
+  coach: {
+    borderRadius: radius.sm,
+    backgroundColor: c.action.weak,
+    padding: space.md,
+    gap: space.sm,
+  },
+  coachHead: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  coachTitle: { ...type.caption, fontWeight: '700', color: c.action.text, flex: 1 },
+  coachBody: { gap: space.xs },
+  cueRow: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
+  bullet: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: c.fg.tertiary,
+    marginTop: 8,
+  },
+  cueText: { ...type.caption, color: c.fg.secondary, flex: 1, lineHeight: 18 },
+  progression: {
+    ...type.caption,
+    color: c.brand.text,
+    fontStyle: 'italic',
+    marginTop: space.xs,
+  },
   exerciseName: { ...type.heading, color: c.fg.primary, flex: 1 },
   restChip: {
     flexDirection: 'row',

@@ -15,6 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { Plus, Search, X } from 'lucide-react-native';
 import { MUSCLE_GROUPS, searchExercises } from '@/features/exercises/source';
 import { useWorkout } from '@/features/workout/store';
+import { ExerciseDemo } from '@/ui/anatomy/ExerciseDemo';
 import { c, radius, space, type } from '@/ui/tokens.bridge';
 
 export default function PickExerciseScreen() {
@@ -113,6 +114,7 @@ export default function PickExerciseScreen() {
         }
         renderItem={({ item }) => (
           <Pressable style={styles.item} onPress={() => add(item.id)}>
+            <ExerciseDemo exerciseId={item.id} size={44} animated={false} />
             <View style={styles.itemText}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemMeta}>
