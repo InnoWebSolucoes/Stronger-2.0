@@ -49,6 +49,8 @@ type State = {
 
   startRest: (seconds: number) => void;
   clearRest: () => void;
+  /** Bulk-replace history. Used when seeding or clearing the demo dataset. */
+  replaceHistory: (history: CompletedWorkout[]) => void;
 };
 
 function emptySet(previous?: { weightKg: number; reps: number } | null): LoggedSet {
@@ -279,5 +281,10 @@ export const useWorkout = create<State>((set, get) => {
 
     startRest: (seconds) => set({ restEndsAt: Date.now() + seconds * 1000 }),
     clearRest: () => set({ restEndsAt: null }),
+
+    replaceHistory: (history) => {
+      set({ history });
+      persist();
+    },
   };
 });
