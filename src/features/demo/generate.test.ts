@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateDemoData } from './generate';
+import { resolveExercise } from '@/features/exercises/source';
 
 const NOW = Date.UTC(2026, 8, 19, 12, 0, 0);
 const DAY = 86_400_000;
@@ -54,7 +55,8 @@ describe('demo data generator', () => {
 
   it('shows progressive overload on the main lifts', () => {
     const topSquat = (w: (typeof data.workouts)[number]): number => {
-      const ex = w.exercises.find((e) => e.exerciseId === 'back-squat');
+      const squatId = resolveExercise('Back Squat (Barbell)')?.id;
+      const ex = w.exercises.find((e) => e.exerciseId === squatId);
       if (!ex) return 0;
       return Math.max(...ex.sets.filter((s) => s.type !== 'warmup').map((s) => s.weightKg ?? 0));
     };

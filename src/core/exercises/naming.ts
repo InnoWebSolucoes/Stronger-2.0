@@ -618,6 +618,29 @@ export function normalizeName(name: string): string {
 }
 
 /**
+ * The cheap search normaliser: lowercase, strip diacritics, drop every
+ * character that is not a letter, digit or space, and collapse whitespace.
+ *
+ * Deliberately dumber than {@link normalizeName}: it does NOT expand
+ * abbreviations, drop stopwords or singularise, so it is safe to run on a
+ * partially-typed query where "curl" must still prefix-match "curls" and where
+ * dropping a token the user is mid-way through typing would make results jump
+ * around between keystrokes.
+ *
+ * @param input - raw user text or a catalog name
+ * @returns lowercase, single-spaced, punctuation-free text
+ */
+export function searchNormalize(input: string): string {
+  return input
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+/**
  * The unique search key stored on every exercise: normalised tokens, deduped
  * and sorted, so "Barbell Bench Press" and "Bench Press (Barbell)" produce the
  * identical key.

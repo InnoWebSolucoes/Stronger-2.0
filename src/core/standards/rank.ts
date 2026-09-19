@@ -86,6 +86,8 @@ export interface RankPosition {
   readonly nextAt: number | null;
   /** Points still needed for the next rank, or null at the top. */
   readonly pointsToNext: number | null;
+  /** Score at which this exact rank begins — the boundary the lifter last crossed. */
+  readonly floor: number;
   /** 0-1 progress from the current rank's floor to the next rank. */
   readonly progress: number;
   /** Percentile of the reference population at this score. */
@@ -147,17 +149,15 @@ export function rankFromScore(score: number): RankPosition {
 
   let nextAt: number | null = null;
   let nextLabel: string | null = null;
-  let floor = band.from;
+  const floor = subIndex >= 0 ? band.from + subIndex * SUB_TIER_WIDTH : band.from;
 
   if (subIndex >= 0 && subIndex < band.subTiers.length - 1) {
     nextAt = band.from + (subIndex + 1) * SUB_TIER_WIDTH;
     nextLabel = `${band.tier} ${at(band.subTiers, subIndex + 1)}`;
-    floor = band.from + subIndex * SUB_TIER_WIDTH;
   } else if (bandIndex < RANK_LADDER.length - 1) {
     const next = at(RANK_LADDER, bandIndex + 1);
     nextAt = next.from;
     nextLabel = next.subTiers.length > 0 ? `${next.tier} ${at(next.subTiers, 0)}` : next.tier;
-    floor = subIndex >= 0 ? band.from + subIndex * SUB_TIER_WIDTH : band.from;
   }
 
   const percentile = normCdf(zFromScore(s));
@@ -168,6 +168,7 @@ export function rankFromScore(score: number): RankPosition {
     score: Math.round(s * 10) / 10,
     nextLabel,
     nextAt,
+    floor,
     pointsToNext: nextAt === null ? null : Math.round((nextAt - s) * 10) / 10,
     progress: nextAt === null ? 1 : (s - floor) / (nextAt - floor),
     percentile,
@@ -429,9 +430,12 @@ export function smoothDisplayScore(previous: DisplayState | null, rawScore: numb
 
   const candidate = rankFromScore(next);
   let label = candidate.label;
+  // Promote only once the boundary INTO the candidate rank has been cleared by the
+  // hysteresis margin. The boundary must come from the candidate, not from the previous
+  // score: a label already held back sits below its own score, and measuring from that
+  // score would pin it to the boundary above and strand the label a whole rank behind.
   if (candidate.label !== previous.lastLabel && next > previous.shown) {
-    const boundary = rankFromScore(previous.shown).nextAt;
-    if (boundary !== null && next < boundary + RANK_HYSTERESIS) label = previous.lastLabel;
+    if (next < candidate.floor + RANK_HYSTERESIS) label = previous.lastLabel;
   }
   return { shown: next, lastLabel: label, updatedAt: now };
 }

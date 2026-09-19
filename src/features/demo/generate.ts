@@ -1,4 +1,4 @@
-import { ALL_EXERCISES } from '@/features/exercises/source';
+import { resolveExercise } from '@/features/exercises/source';
 import type { CompletedWorkout, LoggedSet, WorkoutExercise } from '@/features/workout/types';
 
 /**
@@ -32,66 +32,67 @@ const PPL: Plan[] = [
   {
     name: 'push',
     ids: [
-      'barbell-bench-press',
-      'incline-dumbbell-press',
-      'overhead-press',
-      'dumbbell-lateral-raise',
-      'triceps-pushdown',
-      'overhead-triceps-extension',
+      'Bench Press (Barbell)',
+      'Incline Bench Press (Dumbbell)',
+      'Overhead Press (Barbell)',
+      'Lateral Raise (Dumbbell)',
+      'Triceps Pushdown',
+      'Overhead Triceps Extension',
     ],
   },
   {
     name: 'pull',
     ids: [
-      'deadlift',
-      'pull-up',
-      'barbell-row',
-      'cable-row',
-      'face-pull',
-      'barbell-curl',
-      'hammer-curl',
+      'Deadlift (Barbell)',
+      'Pull Up',
+      'Bent Over Row (Barbell)',
+      'Seated Cable Row',
+      'Face Pull',
+      'Biceps Curl (Barbell)',
+      'Hammer Curl',
     ],
   },
   {
     name: 'legs',
     ids: [
-      'back-squat',
-      'romanian-deadlift',
-      'leg-press',
-      'lying-leg-curl',
-      'leg-extension',
-      'standing-calf-raise',
+      'Back Squat (Barbell)',
+      'Romanian Deadlift (Barbell)',
+      'Leg Press',
+      'Lying Leg Curl',
+      'Leg Extension',
+      'Standing Calf Raise',
     ],
   },
 ];
 
 /** Starting top-set load in kg, and how fast each lift adds weight per week. */
 const START: Record<string, { kg: number; perWeek: number; reps: number }> = {
-  'barbell-bench-press': { kg: 60, perWeek: 0.55, reps: 8 },
-  'incline-dumbbell-press': { kg: 22, perWeek: 0.18, reps: 10 },
-  'overhead-press': { kg: 35, perWeek: 0.3, reps: 8 },
-  'dumbbell-lateral-raise': { kg: 8, perWeek: 0.1, reps: 14 },
-  'triceps-pushdown': { kg: 25, perWeek: 0.3, reps: 12 },
-  'overhead-triceps-extension': { kg: 20, perWeek: 0.22, reps: 12 },
-  deadlift: { kg: 110, perWeek: 0.95, reps: 5 },
-  'pull-up': { kg: 0, perWeek: 0.22, reps: 8 },
-  'barbell-row': { kg: 55, perWeek: 0.45, reps: 8 },
-  'cable-row': { kg: 45, perWeek: 0.4, reps: 10 },
-  'face-pull': { kg: 18, perWeek: 0.14, reps: 15 },
-  'barbell-curl': { kg: 25, perWeek: 0.2, reps: 10 },
-  'hammer-curl': { kg: 12, perWeek: 0.12, reps: 12 },
-  'back-squat': { kg: 80, perWeek: 0.8, reps: 6 },
-  'romanian-deadlift': { kg: 70, perWeek: 0.5, reps: 10 },
-  'leg-press': { kg: 140, perWeek: 1.4, reps: 12 },
-  'lying-leg-curl': { kg: 35, perWeek: 0.3, reps: 12 },
-  'leg-extension': { kg: 40, perWeek: 0.35, reps: 14 },
-  'standing-calf-raise': { kg: 60, perWeek: 0.5, reps: 15 },
+  'Bench Press (Barbell)': { kg: 60, perWeek: 0.55, reps: 8 },
+  'Incline Bench Press (Dumbbell)': { kg: 22, perWeek: 0.18, reps: 10 },
+  'Overhead Press (Barbell)': { kg: 35, perWeek: 0.3, reps: 8 },
+  'Lateral Raise (Dumbbell)': { kg: 8, perWeek: 0.1, reps: 14 },
+  'Triceps Pushdown': { kg: 25, perWeek: 0.3, reps: 12 },
+  'Overhead Triceps Extension': { kg: 20, perWeek: 0.22, reps: 12 },
+  'Deadlift (Barbell)': { kg: 110, perWeek: 0.95, reps: 5 },
+  'Pull Up': { kg: 0, perWeek: 0.22, reps: 8 },
+  'Bent Over Row (Barbell)': { kg: 55, perWeek: 0.45, reps: 8 },
+  'Seated Cable Row': { kg: 45, perWeek: 0.4, reps: 10 },
+  'Face Pull': { kg: 18, perWeek: 0.14, reps: 15 },
+  'Biceps Curl (Barbell)': { kg: 25, perWeek: 0.2, reps: 10 },
+  'Hammer Curl': { kg: 12, perWeek: 0.12, reps: 12 },
+  'Back Squat (Barbell)': { kg: 80, perWeek: 0.8, reps: 6 },
+  'Romanian Deadlift (Barbell)': { kg: 70, perWeek: 0.5, reps: 10 },
+  'Leg Press': { kg: 140, perWeek: 1.4, reps: 12 },
+  'Lying Leg Curl': { kg: 35, perWeek: 0.3, reps: 12 },
+  'Leg Extension': { kg: 40, perWeek: 0.35, reps: 14 },
+  'Standing Calf Raise': { kg: 60, perWeek: 0.5, reps: 15 },
 };
 
 /** Round to the smallest plate jump that equipment realistically allows. */
-function roundLoad(kg: number, id: string): number {
+function roundLoad(kg: number, label: string): number {
   if (kg <= 0) return 0;
-  const isDumbbell = id.includes('dumbbell') || id.includes('hammer') || id.includes('curl');
+  const l = label.toLowerCase();
+  const isDumbbell = l.includes('dumbbell') || l.includes('hammer') || l.includes('curl');
   const step = isDumbbell ? 2 : 2.5;
   return Math.max(step, Math.round(kg / step) * step);
 }
@@ -154,15 +155,15 @@ function buildWith(
       const startedAt = start + w * 7 * DAY + offset * DAY + 18 * 3600_000;
       const exercises: WorkoutExercise[] = [];
 
-      for (const id of plan.ids) {
-        const meta = ALL_EXERCISES.find((e) => e.id === id);
-        const base = START[id];
+      for (const label of plan.ids) {
+        const meta = resolveExercise(label);
+        const base = START[label];
         if (!meta || !base) continue;
 
         const drift = base.perWeek * w;
         const noise = (rand() - 0.5) * base.kg * 0.04;
         const deloadFactor = deload ? 0.85 : 1;
-        const top = roundLoad((base.kg + drift + noise) * deloadFactor, id);
+        const top = roundLoad((base.kg + drift + noise) * deloadFactor, label);
 
         const setCount = deload ? 2 : 3 + (rand() < 0.3 ? 1 : 0);
         const sets: LoggedSet[] = [];
@@ -173,7 +174,7 @@ function buildWith(
           sets.push({
             id: uid('s'),
             type: 'warmup',
-            weightKg: roundLoad(top * 0.5, id),
+            weightKg: roundLoad(top * 0.5, label),
             reps: 8,
             rpe: null,
             done: true,
@@ -198,7 +199,7 @@ function buildWith(
 
         exercises.push({
           id: uid('we'),
-          exerciseId: id,
+          exerciseId: meta.id,
           name: meta.name,
           muscles: meta.muscles,
           restSeconds: meta.defaultRestSeconds ?? 120,

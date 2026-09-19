@@ -39,6 +39,12 @@
  * `insufficient_data` and carries no label at all. The posterior still exists — it is
  * the global term — but it is not a measurement and the UI must not dress it up as one.
  *
+ * COLD START. A label additionally requires a qualified estimate: one that cleared the
+ * evidence bar in `classifyLift` (two sets across two distinct sessions). A brand-new
+ * user with one logged set therefore has no labelled muscle at all, whatever they
+ * lifted — the heaviest possible first set can put a muscle in `calibrating` with a
+ * wide range, never in a tier. See {@link muscleState}.
+ *
  * @see docs/research/stronger-2-0-strength-standards-per-muscle-world-c.md (Part 5, section 9)
  * @see https://symmetricstrength.com/about
  * @see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7579505/
@@ -76,8 +82,18 @@ export const SIGMA_BETWEEN_MUSCLES = 0.55;
  * Minimum share of an exercise's load ceiling a muscle must own for that exercise to
  * count as DIRECT evidence for it. Below this the exercise still informs the solve, but
  * it cannot on its own license a label: 2% of a bench press is not a triceps test.
+ *
+ * 0.12 — about an eighth of the ceiling — is set by what the catalog can actually
+ * evidence, not picked for roundness. The adductors are the binding constraint: the most
+ * adductor-dominant movements in the contribution matrix are the sumo deadlift (0.14)
+ * and the leg press (0.12), so a stricter bar would make that muscle permanently
+ * unlabellable however hard the lifter trained it — a silently dead cell on the body
+ * map. Below 0.12 the contributions in this matrix are stabiliser-level. The evidence
+ * mass rule below still requires several such lifts before anything is named.
+ *
+ * @see docs/research/stronger-2-0-strength-standards-per-muscle-world-c.md (Part 2)
  */
-export const MIN_DIRECT_CONTRIBUTION = 0.15;
+export const MIN_DIRECT_CONTRIBUTION = 0.12;
 
 /**
  * Minimum total contribution mass, summed over the lifter's logged exercises, before a
@@ -86,6 +102,20 @@ export const MIN_DIRECT_CONTRIBUTION = 0.15;
  * 0.04 from a leg press and do not.
  */
 export const MIN_EVIDENCE_MASS = 0.3;
+
+/**
+ * Noise floor, in z units, on any single observation.
+ *
+ * No lift can pin a muscle tighter than the contribution matrix itself is known. W is
+ * an EMG-informed prior awaiting a factor-analysis refit from the app's own
+ * cross-exercise data, so treating a leg extension as a 0.05-z-precise measurement of
+ * the quadriceps would be measuring the model, not the lifter. 0.2 z is the floor that
+ * keeps the posterior honest and, with the evidence gate below, is what makes it
+ * impossible for one set to crown a muscle.
+ *
+ * @see docs/research/stronger-2-0-strength-standards-per-muscle-world-c.md (Part 2)
+ */
+export const MIN_OBSERVATION_TAU = 0.2;
 
 /** How many contributing exercises {@link MuscleScore.topSources} names. */
 export const MAX_NAMED_SOURCES = 3;
@@ -125,6 +155,16 @@ export interface MuscleObservation {
   readonly tau: number;
   /** Days since the lift. Down-weights the observation; never changes its z. */
   readonly ageDays?: number;
+  /**
+   * True when this estimate has cleared the evidence bar in `classifyLift` — at least
+   * two sets across at least two distinct sessions, logged in the last six months.
+   *
+   * DEFAULTS TO FALSE. An unqualified observation still informs the estimate, but it
+   * cannot license a label: this is the rule that makes it structurally impossible for
+   * a brand-new user with one logged set to be classified Elite, whatever they lifted
+   * and however precise the caller claims the measurement was.
+   */
+  readonly qualified?: boolean;
 }
 
 /** Why a muscle's verdict is what it is. */
@@ -152,8 +192,20 @@ export interface MuscleScore {
   readonly score: number;
   /** Rank position, or null when there is not enough data to name one. */
   readonly rank: RankPosition | null;
-  /** Full label, e.g. "Advanced I", or null when unlabelled. */
+  /**
+   * Full label, e.g. "Advanced I" — ONLY when the muscle is `ranked`, null otherwise.
+   * Anything bound to this field is safe by construction: it can never show a tier the
+   * lifter has not evidenced.
+   */
   readonly label: string | null;
+  /**
+   * The midpoint label for a `calibrating` muscle, so the body map can render
+   * "Quads · Advanced I (±1 tier)" as the research brief's UI spec asks. Null for
+   * `insufficient_data` — there is nothing to be provisional about. A UI using this
+   * MUST render the range or the ± qualifier alongside it; it is an estimate, not a
+   * rank.
+   */
+  readonly provisionalLabel: string | null;
   /** Percentile with its confidence band. */
   readonly percentile: PercentileEstimate;
   readonly state: MuscleState;
@@ -163,6 +215,8 @@ export interface MuscleScore {
   readonly evidenceMass: number;
   /** Exercises owning at least {@link MIN_DIRECT_CONTRIBUTION} of their load ceiling here. */
   readonly directExercises: readonly string[];
+  /** Those of {@link directExercises} whose estimates cleared the evidence bar. */
+  readonly qualifiedExercises: readonly string[];
   /** Biggest evidence sources, strongest first. */
   readonly topSources: readonly MuscleSource[];
   /** Days since the freshest lift that loads this muscle, or null if never. */
@@ -333,8 +387,9 @@ export function contributionsFor(exerciseId: string): ContributionRow | undefine
 
 /**
  * Effective measurement noise of an observation once its age is taken into account:
- * sqrt(tau^2 + stale(ageDays)^2), using the same staleness curve as the classification
- * and confidence code so "stale" means one thing across the whole module.
+ * sqrt(max(tau, MIN_OBSERVATION_TAU)^2 + stale(ageDays)^2), using the same staleness
+ * curve as the classification and confidence code so "stale" means one thing across the
+ * whole module.
  *
  * This is the ONLY place recency enters the rollup. It down-weights an old lift's
  * influence on the estimate; it never alters the z the lifter actually earned, and it
@@ -348,7 +403,7 @@ export function contributionsFor(exerciseId: string): ContributionRow | undefine
  * @see docs/research/stronger-2-0-strength-standards-per-muscle-world-c.md (Part 5, section 13)
  */
 export function effectiveTau(tau: number, ageDays = 0): number {
-  const base = Math.max(tau, 0.05);
+  const base = Math.max(tau, MIN_OBSERVATION_TAU);
   const stale = stalenessSd(ageDays);
   return Math.sqrt(base * base + stale * stale);
 }
@@ -363,7 +418,13 @@ export function effectiveTau(tau: number, ageDays = 0): number {
  * @see docs/research/stronger-2-0-strength-standards-per-muscle-world-c.md (Part 5, section 9)
  */
 export function muscleObservationFromLift(classification: LiftClassification, ageDays = 0): MuscleObservation {
-  return { exerciseId: classification.exerciseId, z: classification.z, tau: classification.tau, ageDays };
+  return {
+    exerciseId: classification.exerciseId,
+    z: classification.z,
+    tau: classification.tau,
+    ageDays,
+    qualified: classification.state === 'ranked',
+  };
 }
 
 /**
@@ -387,8 +448,19 @@ export function bestProbeFor(muscle: MuscleGroup): string | null {
   return bestId;
 }
 
+/**
+ * Display name for an exercise. Prefers the catalog's canonical name; falls back to a
+ * title-cased slug so an exercise that has a contribution row but no published standards
+ * table still reads as English in the UI copy rather than as `standing_calf_raise`.
+ */
 function exerciseName(exerciseId: string): string {
-  return STANDARDS[exerciseId]?.name ?? exerciseId;
+  const known = STANDARDS[exerciseId]?.name;
+  if (known !== undefined) return known;
+  return exerciseId
+    .split('_')
+    .filter((part) => part.length > 0)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +567,8 @@ export interface MuscleEvidence {
   readonly mass: number;
   /** Exercises owning at least {@link MIN_DIRECT_CONTRIBUTION} of their load ceiling here. */
   readonly directExercises: readonly string[];
+  /** Those of {@link directExercises} whose estimates cleared the evidence bar. */
+  readonly qualifiedExercises: readonly string[];
   /** Biggest evidence sources, strongest first. */
   readonly topSources: readonly MuscleSource[];
   /** Days since the freshest lift that loads this muscle, or null if never. */
@@ -504,11 +578,21 @@ export interface MuscleEvidence {
 /**
  * Decide what may be said about a muscle given its posterior and its evidence.
  *
- * Three outcomes, in order of strictness. No direct exercise or too little contribution
- * mass → `insufficient_data`, no label at all, because the posterior in that case is
- * just the lifter's overall level wearing a muscle's name. Enough evidence but a
- * posterior SD wider than one sub-tier ({@link LABEL_SD_THRESHOLD}) → `calibrating`,
- * shown as a range. Otherwise → `ranked`.
+ * Three outcomes, in order of strictness.
+ *
+ * `insufficient_data` — no exercise that meaningfully limits this muscle, or too little
+ * contribution mass. No label, no range, because the posterior in that case is just the
+ * lifter's overall level wearing a muscle's name.
+ *
+ * `calibrating` — there is real evidence, but either no single estimate has cleared the
+ * evidence bar (two sets across two sessions, per `classifyLift`) or the posterior SD is
+ * wider than one sub-tier ({@link LABEL_SD_THRESHOLD}). Shown as a range, never a label.
+ *
+ * `ranked` — a qualified direct estimate and a posterior tight enough to name.
+ *
+ * The qualified-estimate requirement is the cold-start guarantee: a brand-new user with
+ * one logged set has no qualified estimate by construction, so no muscle can be labelled
+ * at all — let alone Elite — no matter how heavy the set or how confident the caller.
  *
  * @param z posterior mean for the muscle, in z units
  * @param sdZ posterior SD, in z units
@@ -519,6 +603,7 @@ export interface MuscleEvidence {
 export function muscleState(z: number, sdZ: number, evidence: MuscleEvidence): MuscleState {
   if (!Number.isFinite(z) || !Number.isFinite(sdZ)) return 'insufficient_data';
   if (evidence.directExercises.length === 0 || evidence.mass < MIN_EVIDENCE_MASS) return 'insufficient_data';
+  if (evidence.qualifiedExercises.length === 0) return 'calibrating';
   return sdZ <= LABEL_SD_THRESHOLD ? 'ranked' : 'calibrating';
 }
 
@@ -544,7 +629,11 @@ function buildExplanation(
       ? 'your logged lifts'
       : `${count} exercise${count === 1 ? '' : 's'} that load it, mainly ${lead.name}`;
   if (state === 'calibrating') {
-    return `${name} — somewhere between ${range[0]} and ${range[1]}. Estimated from ${from}, weighted by how much each one is actually limited by this muscle. Log more and this narrows to a single rank.`;
+    const why =
+      evidence.qualifiedExercises.length === 0
+        ? 'One session is not enough to lock a rank in — repeat the lift in another session and this becomes a single rank.'
+        : 'Log more and this narrows to a single rank.';
+    return `${name} — somewhere between ${range[0]} and ${range[1]}. Estimated from ${from}, weighted by how much each one is actually limited by this muscle. ${why}`;
   }
   const age = evidence.freshestAgeDays;
   const stale =
@@ -580,6 +669,7 @@ export function rollupMuscles(input: MuscleRollupInput): MuscleRollup {
     let weightTotal = 0;
     let freshest: number | null = null;
     const direct: string[] = [];
+    const qualified: string[] = [];
     const sources: { exerciseId: string; contribution: number; weight: number }[] = [];
 
     for (const ob of usable) {
@@ -592,7 +682,10 @@ export function rollupMuscles(input: MuscleRollupInput): MuscleRollup {
       mass += w;
       weightTotal += weight;
       sources.push({ exerciseId: ob.exerciseId, contribution: w, weight });
-      if (w >= MIN_DIRECT_CONTRIBUTION && !direct.includes(ob.exerciseId)) direct.push(ob.exerciseId);
+      if (w >= MIN_DIRECT_CONTRIBUTION) {
+        if (!direct.includes(ob.exerciseId)) direct.push(ob.exerciseId);
+        if (ob.qualified === true && !qualified.includes(ob.exerciseId)) qualified.push(ob.exerciseId);
+      }
       const age = ob.ageDays ?? 0;
       if (freshest === null || age < freshest) freshest = age;
     }
@@ -607,7 +700,13 @@ export function rollupMuscles(input: MuscleRollupInput): MuscleRollup {
         share: weightTotal > 0 ? s.weight / weightTotal : 0,
       }));
 
-    const evidence: MuscleEvidence = { mass, directExercises: direct, topSources, freshestAgeDays: freshest };
+    const evidence: MuscleEvidence = {
+      mass,
+      directExercises: direct,
+      qualifiedExercises: qualified,
+      topSources,
+      freshestAgeDays: freshest,
+    };
 
     const z = solved.theta[muscle];
     const sdZ = solved.thetaSd[muscle];
@@ -628,11 +727,13 @@ export function rollupMuscles(input: MuscleRollupInput): MuscleRollup {
       score,
       rank: state === 'ranked' ? rank : null,
       label: state === 'ranked' ? rank.label : null,
+      provisionalLabel: state === 'insufficient_data' ? null : rank.label,
       percentile: percentileWithConfidence(z, sdZ),
       state,
       rangeLabels: range,
       evidenceMass: mass,
       directExercises: direct,
+      qualifiedExercises: qualified,
       topSources,
       freshestAgeDays: freshest,
       suggestedExerciseId: suggested,
@@ -698,8 +799,8 @@ export const MUSCLE_ROLLUP_METHODOLOGY: Readonly<Record<string, MethodologyNote>
   },
   muscleState: {
     summary:
-      'Decides whether a muscle can be given a rank, shown as a range, or left unjudged. A muscle needs at least one exercise that genuinely limits it before the app will name a level.',
-    source: 'Stronger 2.0 labelling rule (posterior SD under 0.35 z, about one sub-tier)',
+      'Decides whether a muscle can be given a rank, shown as a range, or left unjudged. A muscle needs at least one exercise that genuinely limits it, repeated across two sessions, before the app will name a level — so a single first set can never produce a tier.',
+    source: 'Stronger 2.0 labelling rule (qualified estimate plus posterior SD under 0.35 z, about one sub-tier)',
     url: 'https://symmetricstrength.com/about',
   },
   bestProbeFor: {

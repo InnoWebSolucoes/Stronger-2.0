@@ -5,18 +5,13 @@ import { Copy, Pencil, Play, Plus, Trash2 } from 'lucide-react-native';
 import { Screen } from '@/ui/primitives/Screen';
 import { ExerciseDemo } from '@/ui/anatomy/ExerciseDemo';
 import { confirm } from '@/ui/primitives/Dialog';
-import { ALL_EXERCISES } from '@/features/exercises/source';
+import { resolveAll } from '@/features/exercises/source';
 import { TEMPLATES, useRoutines, type Routine } from '@/features/routines/store';
 import { useWorkout, type ExerciseSeed } from '@/features/workout/store';
 import { c, radius, space, type } from '@/ui/tokens.bridge';
 
-function seedsFor(ids: readonly string[]): ExerciseSeed[] {
-  const out: ExerciseSeed[] = [];
-  for (const id of ids) {
-    const found = ALL_EXERCISES.find((e) => e.id === id);
-    if (found) out.push(found);
-  }
-  return out;
+function seedsFor(names: readonly string[]): ExerciseSeed[] {
+  return resolveAll(names);
 }
 
 export default function TrainTab() {

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { loadRaw, removeRaw, saveRaw } from '@/features/workout/storage';
 import type { ExerciseSeed } from '@/features/workout/store';
 
+export { TEMPLATES, type RoutineTemplate } from './templates';
+
 const KEY = 'routines';
 
 export type RoutineExercise = {
@@ -29,86 +31,7 @@ function uid(): string {
   return `r_${Date.now().toString(36)}_${counter.toString(36)}`;
 }
 
-/**
- * Built-in starter routines.
- *
- * Shipped as templates rather than rows so they cannot be corrupted or
- * accidentally deleted; using one copies it into the user's own list.
- */
-export const TEMPLATES: readonly { name: string; note: string; exerciseIds: string[] }[] = [
-  {
-    name: 'Upper A',
-    note: 'Horizontal push and pull emphasis',
-    exerciseIds: [
-      'barbell-bench-press',
-      'barbell-row',
-      'seated-dumbbell-press',
-      'lat-pulldown',
-      'dumbbell-lateral-raise',
-      'triceps-pushdown',
-    ],
-  },
-  {
-    name: 'Lower A',
-    note: 'Squat pattern first, hinge second',
-    exerciseIds: [
-      'back-squat',
-      'romanian-deadlift',
-      'leg-press',
-      'lying-leg-curl',
-      'standing-calf-raise',
-    ],
-  },
-  {
-    name: 'Push',
-    note: 'Chest, shoulders, triceps',
-    exerciseIds: [
-      'barbell-bench-press',
-      'incline-dumbbell-press',
-      'overhead-press',
-      'dumbbell-lateral-raise',
-      'triceps-pushdown',
-      'overhead-triceps-extension',
-    ],
-  },
-  {
-    name: 'Pull',
-    note: 'Back and biceps',
-    exerciseIds: [
-      'deadlift',
-      'pull-up',
-      'barbell-row',
-      'cable-row',
-      'face-pull',
-      'barbell-curl',
-      'hammer-curl',
-    ],
-  },
-  {
-    name: 'Legs',
-    note: 'Quads, hamstrings, glutes, calves',
-    exerciseIds: [
-      'back-squat',
-      'romanian-deadlift',
-      'bulgarian-split-squat',
-      'leg-extension',
-      'seated-leg-curl',
-      'standing-calf-raise',
-    ],
-  },
-  {
-    name: 'Full Body',
-    note: 'One compound per pattern — good for 3 days a week',
-    exerciseIds: [
-      'back-squat',
-      'barbell-bench-press',
-      'barbell-row',
-      'overhead-press',
-      'romanian-deadlift',
-      'plank',
-    ],
-  },
-];
+
 
 type State = {
   routines: Routine[];

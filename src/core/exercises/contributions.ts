@@ -51,10 +51,10 @@ export interface Contribution {
 /**
  * Tolerance for the "sums to 1.0" assertion on a BUILT vector.
  *
- * Built vectors are normalised with the residual folded into the largest entry,
- * so the only error left is IEEE-754 summation error over at most 74 terms.
- * 1e-9 is roughly six orders of magnitude of headroom over that and still tight
- * enough that a real authoring mistake cannot hide under it.
+ * Built vectors are allocated in integer ten-thousandths that sum to exactly
+ * 10,000, so the only error left is IEEE-754 summation error over at most 74
+ * divisions. 1e-9 is roughly six orders of magnitude of headroom over that and
+ * still tight enough that a real authoring mistake cannot hide under it.
  */
 export const CONTRIBUTION_TOLERANCE = 1e-9;
 
@@ -83,11 +83,6 @@ export const DOMINANT_GROUP_SHARE_FLOOR = 0.05;
 // ─────────────────────────────────────────────────────────────────────────────
 // Small numeric helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-function roundTo(value: number, dp: number): number {
-  const factor = 10 ** dp;
-  return Math.round(value * factor) / factor;
-}
 
 function isFiniteNumber(value: number): boolean {
   return Number.isFinite(value);
@@ -217,14 +212,53 @@ function sortedEntries<K extends string>(
 }
 
 /**
+ * Allocates `scale` integer units across `entries` in proportion to their
+ * values, using the largest-remainder method.
+ *
+ * Working in integers and dividing once at the end is what keeps a stored
+ * weight readable as `0.31` rather than `0.3099999999999998`: repeatedly
+ * subtracting rounded floats accumulates error into whichever entry absorbs the
+ * residual, and that entry is the one the muscle map shades darkest.
+ *
+ * Largest remainder (rather than plain rounding) guarantees the parts sum to
+ * exactly `scale`, so no separate fix-up pass can disagree with the total.
+ */
+function allocate<K extends string>(
+  entries: ReadonlyArray<readonly [K, number]>,
+  total: number,
+  scale: number,
+): Array<readonly [K, number]> {
+  const exact = entries.map((entry) => (entry[1] / total) * scale);
+  const counts = exact.map((value) => Math.floor(value));
+  let allocated = counts.reduce((acc, value) => acc + value, 0);
+
+  const byRemainder = exact
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+
+  let cursor = 0;
+  while (allocated < scale && byRemainder.length > 0) {
+    const pick = byRemainder[cursor % byRemainder.length];
+    if (pick === undefined) break;
+    counts[pick.index] = (counts[pick.index] ?? 0) + 1;
+    allocated += 1;
+    cursor += 1;
+  }
+
+  return entries.map((entry, index) => [entry[0], (counts[index] ?? 0) / scale] as const);
+}
+
+/** The integer basis the allocator works in: 10,000 units, i.e. 4 decimals. */
+const ALLOCATION_SCALE = 10 ** SHARE_PRECISION;
+
+/**
  * Rescales a share map to sum to exactly 1.0.
  *
- * Each entry is rounded to four decimal places for legibility, and the rounding
- * residual is folded into the single largest entry. Folding into the largest
- * entry rather than spreading it keeps the error invisible (it lands on a value
- * of ~0.3, not ~0.01) and makes the total exact rather than approximately one.
+ * Shares below {@link MIN_SHARE} of the total are dropped as noise first, then
+ * the survivors are allocated in integer ten-thousandths so the result is both
+ * exact and legible.
  *
- * @param shares - raw shares; values <= {@link MIN_SHARE} after scaling are dropped
+ * @param shares - raw, unnormalised shares
  * @returns a new map summing to 1.0
  * @throws when the input has no positive entry to scale
  */
@@ -238,42 +272,26 @@ export function normalizeShares(shares: MuscleShares): MuscleShares {
   }
 
   const total = positive.reduce((acc, entry) => acc + entry[1], 0);
-  const scaled: Array<readonly [MuscleId, number]> = [];
-  for (const [key, value] of positive) {
-    const share = roundTo(value / total, SHARE_PRECISION);
-    if (share >= MIN_SHARE) scaled.push([key, share]);
-  }
-  // Every share fell below the floor: keep the single largest so the vector is
-  // never empty. `positive` is non-empty and sorted descending, so [0] exists.
-  if (scaled.length === 0) {
-    const largest = positive[0];
-    if (largest === undefined) throw new Error('normalizeShares: unreachable empty vector');
-    return { [largest[0]]: 1 } as MuscleShares;
-  }
+  const kept = positive.filter((entry) => entry[1] / total >= MIN_SHARE);
+  // Every share fell below the floor, which only happens for a vector spread
+  // across hundreds of muscles. Keep the largest so the row is never empty;
+  // `positive` is sorted descending, so index 0 is that entry.
+  const survivors = kept.length > 0 ? kept : positive.slice(0, 1);
+  const keptTotal = survivors.reduce((acc, entry) => acc + entry[1], 0);
 
-  // Re-total after the floor drop, then fold the residual into entry 0, which
-  // is the largest because `sortedEntries` sorted descending.
-  const kept = scaled.reduce((acc, entry) => acc + entry[1], 0);
   const out: Partial<Record<MuscleId, number>> = {};
-  let restSum = 0;
-  for (let i = 1; i < scaled.length; i += 1) {
-    const entry = scaled[i];
-    if (entry === undefined) continue;
-    const share = roundTo(entry[1] / kept, SHARE_PRECISION);
-    out[entry[0]] = share;
-    restSum += share;
+  for (const [key, value] of allocate(survivors, keptTotal, ALLOCATION_SCALE)) {
+    if (value > 0) out[key] = value;
   }
-  const head = scaled[0];
-  if (head === undefined) throw new Error('normalizeShares: unreachable missing head');
-  out[head[0]] = 1 - restSum;
   return out;
 }
 
 /**
  * Rolls muscle shares up to the 21 muscle groups the app displays.
  *
- * The residual is folded into the largest group for the same reason as in
- * {@link normalizeShares}: the consumer asserts an exact sum, not a close one.
+ * Groups holding less than {@link MIN_SHARE} of the work are folded away rather
+ * than shaded on the body map, and the remainder is reallocated so the vector
+ * still sums to 1.0.
  */
 export function groupWeightsFromShares(shares: MuscleShares): GroupWeights {
   const totals = new Map<MuscleGroupId, number>();
@@ -289,23 +307,14 @@ export function groupWeightsFromShares(shares: MuscleShares): GroupWeights {
   if (entries.length === 0) throw new Error('groupWeightsFromShares: no groups');
 
   const total = entries.reduce((acc, entry) => acc + entry[1], 0);
-  const out: Partial<Record<MuscleGroupId, number>> = {};
-  let restSum = 0;
-  for (let i = 1; i < entries.length; i += 1) {
-    const entry = entries[i];
-    if (entry === undefined) continue;
-    const weight = roundTo(entry[1] / total, SHARE_PRECISION);
-    if (weight < MIN_SHARE) continue;
-    out[entry[0]] = weight;
-    restSum += weight;
-  }
-  const head = entries[0];
-  if (head === undefined) throw new Error('groupWeightsFromShares: unreachable missing head');
-  out[head[0]] = roundTo(1 - restSum, 10);
+  const kept = entries.filter((entry) => entry[1] / total >= MIN_SHARE);
+  const survivors = kept.length > 0 ? kept : entries.slice(0, 1);
+  const keptTotal = survivors.reduce((acc, entry) => acc + entry[1], 0);
 
-  // The head assignment above can drift by an ulp after rounding; settle it.
-  const drift = 1 - sumGroupWeights(out);
-  if (drift !== 0) out[head[0]] = (out[head[0]] ?? 0) + drift;
+  const out: Partial<Record<MuscleGroupId, number>> = {};
+  for (const [group, weight] of allocate(survivors, keptTotal, ALLOCATION_SCALE)) {
+    if (weight > 0) out[group] = weight;
+  }
   return out;
 }
 
@@ -439,18 +448,14 @@ function groupDistribution(
   sum: number,
 ): GroupWeights {
   const entries = sortedEntries<MuscleGroupId>(totals).filter((e) => e[1] > 0);
+  if (entries.length === 0) return {};
+  const kept = entries.filter((entry) => entry[1] / sum >= MIN_SHARE);
+  const survivors = kept.length > 0 ? kept : entries.slice(0, 1);
+  const keptTotal = survivors.reduce((acc, entry) => acc + entry[1], 0);
+
   const out: Partial<Record<MuscleGroupId, number>> = {};
-  let restSum = 0;
-  for (let i = 1; i < entries.length; i += 1) {
-    const entry = entries[i];
-    if (entry === undefined) continue;
-    const share = roundTo(entry[1] / sum, SHARE_PRECISION);
-    if (share < MIN_SHARE) continue;
-    out[entry[0]] = share;
-    restSum += share;
+  for (const [group, weight] of allocate(survivors, keptTotal, ALLOCATION_SCALE)) {
+    if (weight > 0) out[group] = weight;
   }
-  const head = entries[0];
-  if (head === undefined) return {};
-  out[head[0]] = 1 - restSum;
   return out;
 }

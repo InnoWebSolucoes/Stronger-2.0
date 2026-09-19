@@ -12,27 +12,22 @@ import {
 } from 'lucide-react-native';
 import { Screen } from '@/ui/primitives/Screen';
 import { Ring } from '@/ui/charts/Ring';
-import { ALL_EXERCISES } from '@/features/exercises/source';
+import { resolveAll } from '@/features/exercises/source';
 import { useWorkout, type ExerciseSeed } from '@/features/workout/store';
 import type { CompletedWorkout } from '@/features/workout/types';
 import { c, radius, shadow, space, type } from '@/ui/tokens.bridge';
 
 /** A starter template until routines are stored. */
 const UPPER_A: string[] = [
-  'barbell-bench-press',
-  'barbell-row',
-  'seated-dumbbell-press',
-  'lat-pulldown',
-  'dumbbell-lateral-raise',
+  'Bench Press (Barbell)',
+  'Bent Over Row (Barbell)',
+  'Seated Overhead Press (Dumbbell)',
+  'Lat Pulldown',
+  'Lateral Raise (Dumbbell)',
 ];
 
-function seedsFor(ids: string[]): ExerciseSeed[] {
-  const out: ExerciseSeed[] = [];
-  for (const id of ids) {
-    const found = ALL_EXERCISES.find((e) => e.id === id);
-    if (found) out.push(found);
-  }
-  return out;
+function seedsFor(names: string[]): ExerciseSeed[] {
+  return resolveAll(names);
 }
 
 export default function LogTab() {
